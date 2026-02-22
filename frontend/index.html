@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ORBITWATCH — Live Satellite Operations</title>
+
+    <link
+      href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+
+    <style>
+      /* Cesium sits at z-index 1, all UI above it */
+      #cesiumContainer {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+      }
+      /* FE-2 placeholder overlay — transparent, pointer-events off so clicks reach Cesium */
+      #cesium-container {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background: transparent;
+      }
+      /* Allow pointer events only on the actual placeholder content */
+      #globe-placeholder {
+        pointer-events: auto;
+      }
+      .cesium-widget-credits {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- FE-1: Cesium globe -->
+    <div id="cesiumContainer"></div>
+
+    <!-- Atmospheric overlays -->
+    <div class="scanlines" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="noise" aria-hidden="true"></div>
+
+    <!-- FE-2: Loading placeholder (hidden once Cesium loads) -->
+    <div id="cesium-container">
+      <div id="globe-placeholder">
+        <div class="gp-rings">
+          <div class="gp-ring r1"></div>
+          <div class="gp-ring r2"></div>
+          <div class="gp-ring r3"></div>
+          <div class="gp-ring r4"></div>
+          <div class="gp-core"><div class="gp-core-inner"></div></div>
+          <div class="gp-sat s1"></div>
+          <div class="gp-sat s2"></div>
+          <div class="gp-sat s3"></div>
+          <div class="gp-sat s4"></div>
+        </div>
+        <p class="gp-label">ORBITWATCH</p>
+        <p class="gp-sub">Initializing Cesium rendering engine</p>
+        <div class="gp-progress"><div class="gp-progress-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- TOP HUD BAR -->
+    <header id="hud-bar">
+      <div class="hud-brand">
+        <div class="brand-mark">
+          <div class="bm-ring r1"></div>
+          <div class="bm-ring r2"></div>
+          <div class="bm-dot"></div>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">ORBITWATCH</span>
+          <span class="brand-sub">SPACE DOMAIN AWARENESS</span>
+        </div>
+      </div>
+      <div class="hud-metrics">
+        <div class="hud-metric">
+          <span class="metric-val" id="stat-satellites">--</span>
+          <span class="metric-lbl">Objects</span>
+        </div>
+        <div class="hud-sep"></div>
+        <div class="hud-metric">
+          <span class="metric-val" id="stat-debris">--</span>
+          <span class="metric-lbl">Debris</span>
+        </div>
+        <div class="hud-sep"></div>
+        <div class="hud-metric">
+          <span class="metric-val c-red" id="stat-high-risk">--</span>
+          <span class="metric-lbl">High Risk</span>
+        </div>
+        <div class="hud-sep"></div>
+        <div class="hud-metric">
+          <span class="metric-val c-amber" id="stat-med-risk">--</span>
+          <span class="metric-lbl">Mid Risk</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="live-wrap">
+          <div class="live-pip"></div>
+          <span class="live-txt">LIVE</span>
+        </div>
+        <div id="stat-last-updated" class="hud-ts">--</div>
+      </div>
+    </header>
+
+    <!-- Panel toggle -->
+    <button
+      id="panel-toggle"
+      title="Toggle Panel (P)"
+      aria-label="Toggle info panel"
+    >
+      <span class="toggle-icon" id="toggle-icon">◀</span>
+    </button>
+
+    <!-- RIGHT PANEL -->
+    <div
+      id="right-panel"
+      role="complementary"
+      aria-label="Satellite information panel"
+    >
+      <div id="right-panel-inner">
+        <div class="g-card" id="card-inject">
+          <div class="g-card-head">
+            <span class="g-head-title"
+              ><span class="head-dot green"></span>INJECT SATELLITE</span
+            >
+            <button
+              class="card-collapse-btn open"
+              id="inject-toggle"
+              aria-label="Toggle inject panel"
+            >
+              ▾
+            </button>
+          </div>
+          <div id="inject-body">
+            <div class="inject-form">
+              <form id="add-satellite-form" novalidate>
+                <div class="f-group">
+                  <label class="f-label" for="tle-line1">TLE LINE 1</label>
+                  <input
+                    id="tle-line1"
+                    type="text"
+                    class="f-input"
+                    placeholder="1 25544U 98067A ..."
+                    spellcheck="false"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="f-group">
+                  <label class="f-label" for="tle-line2">TLE LINE 2</label>
+                  <input
+                    id="tle-line2"
+                    type="text"
+                    class="f-input"
+                    placeholder="2 25544 51.6416 ..."
+                    spellcheck="false"
+                    autocomplete="off"
+                  />
+                </div>
+                <button type="submit" class="btn-inject" id="inject-btn">
+                  <span class="btn-shimmer"></span>
+                  <span class="btn-text"
+                    >⊕ INJECT &amp; ANALYSE COLLISIONS</span
+                  >
+                  <span class="btn-loader" aria-hidden="true"></span>
+                </button>
+              </form>
+            </div>
+            <div
+              id="add-status"
+              class="inject-status"
+              role="status"
+              aria-live="polite"
+            ></div>
+            <div class="presets-row">
+              <span class="preset-lbl">QUICK LOAD —</span>
+              <button class="p-btn" data-tle="ISS">ISS</button>
+              <button class="p-btn" data-tle="STARLINK">Starlink</button>
+              <button class="p-btn" data-tle="HUBBLE">Hubble</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="g-card" id="card-inspector">
+          <div class="g-card-head">
+            <span class="g-head-title"
+              ><span class="head-dot cyan"></span>OBJECT INSPECTOR</span
+            >
+            <span id="stat-last-updated-panel" class="g-head-ts">--</span>
+          </div>
+          <div id="panel-content"></div>
+        </div>
+
+        <div class="g-card" id="card-kessler">
+          <div class="g-card-head">
+            <span class="g-head-title"
+              ><span class="head-dot amber"></span>ORBITAL RISK INDEX</span
+            >
+            <span id="kessler-label" class="kessler-lbl">NOMINAL</span>
+          </div>
+          <div class="kessler-body">
+            <div class="kessler-bar-wrap">
+              <div
+                class="kessler-bar-track"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              >
+                <div class="kessler-bar-fill" id="kessler-fill"></div>
+                <div class="kessler-bar-markers">
+                  <div class="kbm" style="left: 25%"></div>
+                  <div class="kbm" style="left: 50%"></div>
+                  <div class="kbm" style="left: 75%"></div>
+                </div>
+              </div>
+              <div class="kessler-bar-glow" id="kessler-glow"></div>
+            </div>
+            <div class="kessler-ticks">
+              <span>SAFE</span><span>CAUTION</span><span>DANGER</span
+              ><span>CRITICAL</span>
+            </div>
+            <div class="kessler-score">
+              <span class="ks-val" id="kessler-score">—</span>
+              <span class="ks-unit" id="kessler-unit">/ 100</span>
+              <span class="ks-label-right">RISK SCORE</span>
+            </div>
+            <div class="kessler-hint" id="kessler-hint">
+              Select a satellite to calculate orbital risk for its altitude
+            </div>
+          </div>
+        </div>
+
+        <div class="g-card" id="card-alerts">
+          <div class="g-card-head">
+            <span class="g-head-title"
+              ><span class="head-dot red"></span>CONJUNCTION ALERTS</span
+            >
+            <span class="count-pill clear" id="alert-count">0</span>
+          </div>
+          <div id="alerts-container" role="list">
+            <div class="all-clear">◉ ALL SYSTEMS NOMINAL</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="shortcuts-hint">
+      <span class="sc-key">P</span> Panel &nbsp;
+      <span class="sc-key">I</span> Inject &nbsp;
+      <span class="sc-key">F</span> Deselect All
+    </div>
+
+    <div
+      id="impact-modal"
+      class="m-overlay"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="m-box">
+        <div class="m-glow-line"></div>
+        <div class="m-particles" id="m-particles" aria-hidden="true"></div>
+        <div class="m-head">
+          <h3 class="m-title" id="modal-title">REMOVAL IMPACT</h3>
+        </div>
+        <div id="modal-body"></div>
+        <button class="m-close" id="modal-close-btn">DISMISS</button>
+      </div>
+    </div>
+
+    <div id="toast-container" aria-live="assertive" aria-atomic="true"></div>
+    <div id="collision-flash" aria-hidden="true"></div>
+
+    <!-- Cesium must load before globe.js -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+
+    <!-- FE-1: Globe rendering -->
+    <script type="module" src="./globe.js"></script>
+
+    <!-- FE-2: UI panel, alerts, dashboard -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "satellites": [
+    {
+      "id": "ISS",
+      "name": "ISS (ZARYA)",
+      "lat": 23.5,
+      "lng": 77.2,
+      "alt_km": 408,
+      "speed_kms": 7.66,
+      "type": "station"
+    }
+  ],
+  "debris": [
+    {
+      "id": "DEB-001",
+      "lat": -12.3,
+      "lng": 44.1,
+      "alt_km": 520
+    }
+  ],
+  "collisions": [
+    {
+      "sat1": "ISS",
+      "sat2": "DEB-001",
+      "distance_km": 3.2,
+      "risk": "HIGH",
+      "time_to_closest": "00:14:32"
+    }
+  ],
+  "last_updated": "2024-01-15T10:32:00Z"
+}
