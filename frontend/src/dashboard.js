@@ -17,7 +17,6 @@ export function updateDashboard(data) {
 
   const ts = formatTimestamp(data.last_updated);
   setTs("stat-last-updated", ts);
-  setTs("stat-last-updated-panel", ts);
 
   const highEl = document.getElementById("stat-high-risk");
   if (highEl) highEl.classList.toggle("pulse-anim", high > 0);
@@ -53,8 +52,7 @@ export function updateKessler(data) {
     }
     if (unitEl) unitEl.style.opacity = "0.3";
     if (hintEl) {
-      hintEl.textContent =
-        "Select a satellite to view the orbital risk index";
+      hintEl.textContent = "Select a satellite to view the orbital risk index";
       hintEl.style.display = "block";
     }
     _prev["kessler-score"] = 0;
@@ -72,7 +70,7 @@ export function updateKessler(data) {
   if (glow) glow.style.left = Math.max(0, raw - 1.5) + "%";
   if (track) track.setAttribute("aria-valuenow", raw);
 
-  animateTo("kessler-score", raw);
+  if (ksVal) ksVal.textContent = raw;
 
   const label = ra.label || "NOMINAL";
   let color = "var(--green)";

@@ -1,5 +1,5 @@
 // satellites.js
-const satellite = require('satellite.js');
+const satellite = require("satellite.js");
 
 let satelliteStorage = []; // In-memory list of satellite objects [cite: 55, 143]
 
@@ -52,26 +52,36 @@ let satelliteStorage = []; // In-memory list of satellite objects [cite: 55, 143
 //     return path;
 // }
 
-function computeOrbitPath(satrec, startTime, steps = 180) {
-    const meanMotionRadPerMin = satrec.no;
-    const periodMinutes = (2 * Math.PI) / meanMotionRadPerMin;
+function computeOrbitPath(satrec, steps = 3600) {
+  const now = new Date();
+  const periodMinutes = (2 * Math.PI) / satrec.no;
 
-    const path = [];
-    for (let i = 0; i <= steps; i++) {
-        const t = new Date(startTime.getTime() + (i / steps) * periodMinutes * 60000);
-        try {
-            const pv = satellite.propagate(satrec, t);
-            if (!pv.position) continue;
-            // Store raw ECI coords in km — no lat/lng conversion
-            path.push({
-                x: pv.position.x,
-                y: pv.position.y,
-                z: pv.position.z
-            });
-        } catch (e) { /* skip bad points */ }
+  // Calculate Earth's rotation angle ONCE for the current moment
+  // and reuse it for every single point — this is the key fix
+  const gmstNow = satellite.gstime(now);
+
+  const path = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = new Date(now.getTime() + (i / steps) * periodMinutes * 60000);
+    try {
+      const pv = satellite.propagate(satrec, t);
+      if (!pv || !pv.position) continue;
+
+      // Use gmstNow for ALL points instead of satellite.gstime(t)
+      const geo = satellite.eciToGeodetic(pv.position, gmstNow);
+
+      path.push({
+        lat: satellite.degreesLat(geo.latitude),
+        lng: satellite.degreesLong(geo.longitude),
+        alt: geo.height,
+      });
+    } catch (e) {
+      /* skip */
     }
-    if (path.length > 0) path.push({ ...path[0] }); // close the loop
-    return path;
+  }
+
+  if (path.length > 0) path.push({ ...path[0] });
+  return path;
 }
 
 /**
@@ -79,62 +89,62 @@ function computeOrbitPath(satrec, startTime, steps = 180) {
  * This uses the SGP4 propagation model.
  */
 const propagateLocation = (tleLine1, tleLine2, name, id) => {
-    const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
-    
-    const now = new Date();
-    const positionAndVelocity = satellite.propagate(satrec, now);
-    const positionEci = positionAndVelocity.position;
+  const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
 
-    if (!positionEci) return null;
+  const now = new Date();
+  const positionAndVelocity = satellite.propagate(satrec, now);
+  const positionEci = positionAndVelocity.position;
 
-    const gmst = satellite.gstime(now);
-    const positionGd = satellite.eciToGeodetic(positionEci, gmst);
+  if (!positionEci) return null;
 
-    // Compute the full orbital path using SGP4 propagation
-    const orbitPath = computeOrbitPath(satrec, now);
+  const gmst = satellite.gstime(now);
+  const positionGd = satellite.eciToGeodetic(positionEci, gmst);
 
-    return {
-        id: id,
-        name: name,
-        lat: satellite.degreesLat(positionGd.latitude),
-        lng: satellite.degreesLong(positionGd.longitude),
-        alt_km: positionGd.height,
-        speed_kms: 7.66,
-        type: "payload",
-        tle1: tleLine1,
-        tle2: tleLine2,
-        orbitPath: orbitPath
-    };
+  // Compute the full orbital path using SGP4 propagation
+  const orbitPath = computeOrbitPath(satrec);
+
+  return {
+    id: id,
+    name: name,
+    lat: satellite.degreesLat(positionGd.latitude),
+    lng: satellite.degreesLong(positionGd.longitude),
+    alt_km: positionGd.height,
+    speed_kms: 7.66,
+    type: "payload",
+    tle1: tleLine1,
+    tle2: tleLine2,
+    orbitPath: orbitPath,
+  };
 };
 
 /**
  * BE-1: Call this after fetching from Space-Track to overwrite the current list[cite: 142].
  */
 const setSatellites = (newList) => {
-    satelliteStorage = newList;
+  satelliteStorage = newList;
 };
 
 const getSatellites = () => {
-    return satelliteStorage;
+  return satelliteStorage;
 };
 
 const addSatellite = (satelliteObject) => {
-    satelliteStorage.push(satelliteObject);
-    return satelliteObject;
+  satelliteStorage.push(satelliteObject);
+  return satelliteObject;
 };
 
 const removeSatellite = (id) => {
-    const index = satelliteStorage.findIndex(s => s.id === id);
-    if (index !== -1) {
-        return satelliteStorage.splice(index, 1)[0];
-    }
-    return null;
+  const index = satelliteStorage.findIndex((s) => s.id === id);
+  if (index !== -1) {
+    return satelliteStorage.splice(index, 1)[0];
+  }
+  return null;
 };
 
 module.exports = {
-    getSatellites,
-    setSatellites,
-    addSatellite,
-    removeSatellite,
-    propagateLocation
+  getSatellites,
+  setSatellites,
+  addSatellite,
+  removeSatellite,
+  propagateLocation,
 };

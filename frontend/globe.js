@@ -33,6 +33,7 @@ viewer.imageryLayers.addImageryProvider(
 viewer.scene.globe.enableLighting = true;
 viewer.scene.globe.maximumScreenSpaceError = 1;
 viewer.scene.globe.tileCacheSize = 1000;
+
 viewer.scene.skyBox.show = true;
 viewer.scene.skyAtmosphere.brightnessShift = 0.3;
 viewer.scene.skyAtmosphere.hueShift = -0.05;
@@ -236,89 +237,6 @@ function renderDebris(debrisArray) {
 // ═══════════════════════════════════════════════════
 //  ORBIT LINES — uses orbitPath from backend/mock data
 // ═══════════════════════════════════════════════════
-// function addOrbit(satId, satData) {
-//   removeOrbit(satId);
-
-//   // Use backend-provided orbitPath if available
-//   let positions = [];
-//   if (satData.orbitPath && satData.orbitPath.length > 1) {
-//     positions = satData.orbitPath.map(p =>
-//       Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
-//     );
-//   } else {
-//     // Fallback: generate a simple approximate orbit from current position
-//     positions = fallbackOrbitPositions(satData);
-//   }
-
-//   if (positions.length < 2) return;
-
-//   const color = satColor(
-//     { name: satData.name, type: satData.type },
-//     { risk: satData.risk },
-//   );
-//   const orbitId = "orbit_" + satId;
-//   viewer.entities.add({
-//     id: orbitId,
-//     polyline: {
-//       positions: positions,
-//       width: 15,
-//       material: new Cesium.PolylineGlowMaterialProperty({
-//         glowPower: 0.1,
-//         color: color.withAlpha(0.5),
-//       }),
-//       clampToGround: false,
-//     },
-//   });
-//   _orbitEntities.set(satId, orbitId);
-// }
-
-// function addOrbit(satId, satData) {
-//   removeOrbit(satId);
-
-//   const color = satColor(
-//     { name: satData.name, type: satData.type },
-//     { risk: satData.risk },
-//   );
-
-//   let positions = [];
-
-//   if (satData.orbitPath && satData.orbitPath.length > 1) {
-//     const pts = satData.orbitPath;
-//     // Detect format: ECI (x/y/z) or geodetic (lat/lng)
-//     if (pts[0].x !== undefined) {
-//       // ECI in km → Cesium uses meters, ECI = Earth-centred so map directly
-//       positions = pts.map(p =>
-//         new Cesium.Cartesian3(p.x * 1000, p.y * 1000, p.z * 1000)
-//       );
-//     } else {
-//       // Fallback: old geodetic format
-//       positions = pts.map(p =>
-//         Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
-//       );
-//     }
-//   } else {
-//     positions = fallbackOrbitPositions(satData);
-//   }
-
-//   if (positions.length < 2) return;
-
-//   const orbitId = "orbit_" + satId;
-//   viewer.entities.add({
-//     id: orbitId,
-//     polyline: {
-//       positions,
-//       width: 15,
-//       arcType: Cesium.ArcType.NONE,
-//       material: new Cesium.PolylineGlowMaterialProperty({
-//         glowPower: 0.1,
-//         color: color.withAlpha(0.5),
-//       }),
-//       clampToGround: false,
-//     },
-//   });
-//   _orbitEntities.set(satId, orbitId);
-// }
-
 function addOrbit(satId, satData) {
   removeOrbit(satId);
 
@@ -327,63 +245,69 @@ function addOrbit(satId, satData) {
     { risk: satData.risk },
   );
 
-  let positions = [];
+  let pts = satData.orbitPath;
 
-  if (satData.orbitPath && satData.orbitPath.length > 1) {
-    const pts = satData.orbitPath;
-    // Detect format: ECI (x/y/z) or geodetic (lat/lng)
-    if (pts[0].x !== undefined) {
-      // ECI in km → Cesium uses meters, ECI = Earth-centred so map directly
-      positions = pts.map(p =>
-        new Cesium.Cartesian3(p.x * 1000, p.y * 1000, p.z * 1000)
-      );
-    } else {
-      // Fallback: old geodetic format
-      positions = pts.map(p =>
-        Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
-      );
+  // Split path into segments at antimeridian crossings
+  const segments = [];
+  let current = [];
+
+  for (let i = 0; i < pts.length; i++) {
+    if (i === 0) {
+      current.push(pts[i]);
+      continue;
     }
-  } else {
-    positions = fallbackOrbitPositions(satData);
+    const prev = pts[i - 1];
+    const curr = pts[i];
+    const lngDiff = Math.abs(curr.lng - prev.lng);
+
+    if (lngDiff > 180) {
+      // Crossed the antimeridian — start a new segment
+      if (current.length >= 2) segments.push(current);
+      current = [curr];
+    } else {
+      current.push(curr);
+    }
   }
+  if (current.length >= 2) segments.push(current);
 
-  if (positions.length < 2) return;
+  if (segments.length === 0) return;
 
-  const orbitId = "orbit_" + satId;
-  viewer.entities.add({
-    id: orbitId,
-    polyline: {
-      positions,
-      width: 15,
-      arcType: Cesium.ArcType.NONE,
-      material: new Cesium.PolylineGlowMaterialProperty({
-        glowPower: 0.1,
-        color: color.withAlpha(0.5),
-      }),
-      clampToGround: false,
-    },
+  // Draw each segment as its own polyline entity
+  segments.forEach((seg, idx) => {
+    const positions = seg.map((p) =>
+      Cesium.Cartesian3.fromDegrees(p.lng, p.lat, p.alt * 1000),
+    );
+
+    const orbitId = `orbit_${satId}_${idx}`;
+    viewer.entities.add({
+      id: orbitId,
+      polyline: {
+        positions,
+        width: 15,
+        arcType: Cesium.ArcType.GEODESIC,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.1,
+          color: color.withAlpha(0.5),
+        }),
+        clampToGround: false,
+      },
+    });
   });
-  _orbitEntities.set(satId, orbitId);
+
+  // Store all segment IDs so removeOrbit can clean them all up
+  _orbitEntities.set(
+    satId,
+    segments.map((_, idx) => `orbit_${satId}_${idx}`),
+  );
 }
 
-// Fallback orbit when backend doesn't provide orbitPath (e.g. mock mode without it)
-function fallbackOrbitPositions(sat, steps = 180) {
-  const alt = sat.alt_km * 1000;
-  const incRad = Cesium.Math.toRadians(Math.abs(sat.lat) + 10);
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * 2 * Math.PI;
-    const lat = Math.asin(Math.sin(incRad) * Math.sin(a));
-    const lng =
-      sat.lng +
-      Cesium.Math.toDegrees(
-        Math.atan2(Math.cos(incRad) * Math.sin(a), Math.cos(a)),
-      );
-    pts.push(
-      Cesium.Cartesian3.fromDegrees(lng, Cesium.Math.toDegrees(lat), alt),
-    );
-  }
-  return pts;
+function removeOrbit(satId) {
+  const ids = _orbitEntities.get(satId);
+  if (!ids) return;
+
+  const idList = Array.isArray(ids) ? ids : [ids];
+  idList.forEach((id) => viewer.entities.removeById(id));
+  _orbitEntities.delete(satId);
 }
 
 // Label entities — one per selected satellite, cleared on deselect
@@ -424,44 +348,6 @@ function removeLabel(satId) {
     _labelEntities.delete(satId);
   }
 }
-
-// function removeOrbit(satId) {
-//   const oid = _orbitEntities.get(satId);
-//   if (oid) {
-//     const e = viewer.entities.getById(oid);
-//     if (e) viewer.entities.remove(e);
-//     _orbitEntities.delete(satId);
-//   }
-// }
-
-function removeOrbit(satId) {
-  const oid = _orbitEntities.get(satId);
-  if (oid) {
-    // Remove main segment and any sub-segments (orbit_id_1, orbit_id_2, ...)
-    let idx = 0;
-    while (true) {
-      const id = idx === 0 ? oid : oid + "_" + idx;
-      const e = viewer.entities.getById(id);
-      if (!e) break;
-      viewer.entities.remove(e);
-      idx++;
-    }
-    _orbitEntities.delete(satId);
-  }
-}
-
-// function removeOrbit(satId) {
-//   const oid = _orbitEntities.get(satId);
-//   if (oid) {
-//     for (let i = 0; i < 20; i++) {
-//       const id = i === 0 ? oid : oid + '_' + i;
-//       const e = viewer.entities.getById(id);
-//       if (!e) { if (i > 0) break; continue; }
-//       viewer.entities.remove(e);
-//     }
-//     _orbitEntities.delete(satId);
-//   }
-// }
 
 // ═══════════════════════════════════════════════════
 //  CAMERA
@@ -525,12 +411,14 @@ function satDataFromEntity(entity) {
   let orbitPath = [];
   try {
     const raw = p.orbitPath?.getValue();
-    if (typeof raw === 'string' && raw.length > 2) {
+    if (typeof raw === "string" && raw.length > 2) {
       orbitPath = JSON.parse(raw);
     } else if (Array.isArray(raw)) {
       orbitPath = raw;
     }
-  } catch (e) { /* ignore parse errors */ }
+  } catch (e) {
+    /* ignore parse errors */
+  }
 
   return {
     id: p.satId?.getValue() || baseSatId(entity.id),
