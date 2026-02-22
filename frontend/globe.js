@@ -64,30 +64,20 @@ document.addEventListener("keyup", (e) => {
   if (e.key === "Shift") _shiftHeld = false;
 });
 
+window.addEventListener("satellite-removed", (e) => {
+  const id = e.detail.id;
+  deselect();
+  removeOrbit(id);
+  removeLabel(id);
+  _selectedIds.delete(id);
+  rebuildSelectedSatellites();
+});
+
 const ORBIT_COLORS = ["#00c8ff", "#ff6600", "#00ffaa", "#ff44cc", "#ffe033"];
 
 // ═══════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════
-// async function init() {
-//   viewer.scene.globe.tileLoadProgressEvent.addEventListener((remaining) => {
-//     if (remaining === 0) {
-//       const ph = document.getElementById("globe-placeholder");
-//       if (ph) {
-//         ph.style.opacity = "0";
-//         ph.style.pointerEvents = "none";
-//       }
-//     }
-//   });
-
-//   const res = await fetch("/api/satellites");
-//   const data = await res.json();
-//   _lastCollisions = data.collisions || [];
-//   renderSatellites(data.satellites, data.collisions);
-//   renderDebris(data.debris);
-//   setupClickHandler();
-//   setupListeners();
-// }
 
 async function init() {
   // All data arrives via custom events dispatched by main.js (satellites-updated, etc.)
@@ -129,23 +119,23 @@ function satColor(sat, col) {
   if (col?.risk === "HIGH") return Cesium.Color.RED;
   if (col?.risk === "MEDIUM") return Cesium.Color.ORANGE;
   if (col?.risk === "LOW") return Cesium.Color.YELLOW;
-  if (sat.name.includes("STARLINK"))
-    return Cesium.Color.fromCssColorString("#00bfff");
-  if (sat.name.includes("ONEWEB"))
-    return Cesium.Color.fromCssColorString("#ff6600");
-  if (sat.name.includes("GPS"))
-    return Cesium.Color.fromCssColorString("#00ff88");
-  if (sat.name.includes("GLONASS"))
-    return Cesium.Color.fromCssColorString("#ff4488");
-  if (sat.name.includes("GALILEO"))
-    return Cesium.Color.fromCssColorString("#ffff00");
-  if (sat.name.includes("BEIDOU"))
-    return Cesium.Color.fromCssColorString("#ff8800");
-  if (sat.name.includes("IRIDIUM"))
-    return Cesium.Color.fromCssColorString("#cc88ff");
-  if (sat.type === "station") return Cesium.Color.WHITE;
-  if (sat.type === "rocket_body")
-    return Cesium.Color.fromCssColorString("#888888");
+  // if (sat.name.includes("STARLINK"))
+  //   return Cesium.Color.fromCssColorString("#00bfff");
+  // if (sat.name.includes("ONEWEB"))
+  //   return Cesium.Color.fromCssColorString("#ff6600");
+  // if (sat.name.includes("GPS"))
+  //   return Cesium.Color.fromCssColorString("#00ff88");
+  // if (sat.name.includes("GLONASS"))
+  //   return Cesium.Color.fromCssColorString("#ff4488");
+  // if (sat.name.includes("GALILEO"))
+  //   return Cesium.Color.fromCssColorString("#ffff00");
+  // if (sat.name.includes("BEIDOU"))
+  //   return Cesium.Color.fromCssColorString("#ff8800");
+  // if (sat.name.includes("IRIDIUM"))
+  //   return Cesium.Color.fromCssColorString("#cc88ff");
+  // if (sat.type === "station") return Cesium.Color.WHITE;
+  // if (sat.type === "rocket_body")
+  //   return Cesium.Color.fromCssColorString("#888888");
   return Cesium.Color.CYAN;
 }
 

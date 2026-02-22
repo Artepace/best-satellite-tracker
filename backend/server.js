@@ -58,7 +58,7 @@ async function fetchTles() {
     //const queryUrl =
     //  "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/limit/500/format/json";
 
-    // const queryUrl = 
+    // const queryUrl =
     //   "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/OBJECT_TYPE/PAYLOAD/limit/500/format/json";
     // const dataResponse = await axios.get(queryUrl, {
     //   headers: { Cookie: sessionCookie },
@@ -87,7 +87,7 @@ async function fetchTles() {
 
     const [payloadResponse, debrisResponse] = await Promise.all([
       axios.get(payloadUrl, { headers: { Cookie: sessionCookie } }),
-      axios.get(debrisUrl,  { headers: { Cookie: sessionCookie } }),
+      axios.get(debrisUrl, { headers: { Cookie: sessionCookie } }),
     ]);
 
     const rawData = [...payloadResponse.data, ...debrisResponse.data];
@@ -202,13 +202,15 @@ app.get("/api/data", (req, res) => {
 
   // Build name lookup for collision display
   const nameMap = {};
-  allObjects.forEach(s => { nameMap[s.id] = s.name; });
+  allObjects.forEach((s) => {
+    nameMap[s.id] = s.name;
+  });
 
   // Add satellite names to collision records for the frontend
-  const namedCollisions = collisions.map(c => ({
+  const namedCollisions = collisions.map((c) => ({
     ...c,
     sat1Name: nameMap[c.sat1] || c.sat1,
-    sat2Name: nameMap[c.sat2] || c.sat2
+    sat2Name: nameMap[c.sat2] || c.sat2,
   }));
 
   // Strip internal TLE fields from response, keep orbitPath for frontend
@@ -220,7 +222,7 @@ app.get("/api/data", (req, res) => {
     alt_km: s.alt_km,
     speed_kms: s.speed_kms,
     type: s.type,
-    orbitPath: s.orbitPath || []
+    orbitPath: s.orbitPath || [],
   });
 
   res.json({
