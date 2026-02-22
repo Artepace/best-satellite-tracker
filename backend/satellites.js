@@ -6,22 +6,71 @@ let satelliteStorage = []; // In-memory list of satellite objects [cite: 55, 143
 /**
  * Propagate a satellite forward in time to trace its orbital path.
  */
-function computeOrbitPath(satrec, startTime, steps = 120, durationMinutes = 90) {
+// function computeOrbitPath(satrec, startTime, steps = 120, durationMinutes = 90) {
+//     const path = [];
+//     for (let i = 0; i <= steps; i++) {
+//         const t = new Date(startTime.getTime() + (i / steps) * durationMinutes * 60000);
+//         try {
+//             const pv = satellite.propagate(satrec, t);
+//             if (!pv.position) continue;
+//             const gmst = satellite.gstime(t);
+//             const gd = satellite.eciToGeodetic(pv.position, gmst);
+//             path.push({
+//                 lat: satellite.degreesLat(gd.latitude),
+//                 lng: satellite.degreesLong(gd.longitude),
+//                 alt_km: gd.height
+//             });
+//         } catch (e) { /* skip bad points */ }
+//     }
+//     return path;
+// }
+
+// function computeOrbitPath(satrec, startTime, steps = 180) {
+//     // Derive orbital period from mean motion (revs/day) stored in satrec
+//     const meanMotionRadPerMin = satrec.no; // rad/min
+//     const periodMinutes = (2 * Math.PI) / meanMotionRadPerMin;
+
+//     const path = [];
+//     for (let i = 0; i <= steps; i++) {
+//         const t = new Date(startTime.getTime() + (i / steps) * periodMinutes * 60000);
+//         try {
+//             const pv = satellite.propagate(satrec, t);
+//             if (!pv.position) continue;
+//             const gmst = satellite.gstime(t);
+//             const gd = satellite.eciToGeodetic(pv.position, gmst);
+//             path.push({
+//                 lat: satellite.degreesLat(gd.latitude),
+//                 lng: satellite.degreesLong(gd.longitude),
+//                 alt_km: gd.height
+//             });
+//         } catch (e) { /* skip bad points */ }
+//     }
+
+//     // Close the loop — repeat first point so the ring is complete
+//     if (path.length > 0) path.push({ ...path[0] });
+
+//     return path;
+// }
+
+function computeOrbitPath(satrec, startTime, steps = 180) {
+    const meanMotionRadPerMin = satrec.no;
+    const periodMinutes = (2 * Math.PI) / meanMotionRadPerMin;
+
     const path = [];
     for (let i = 0; i <= steps; i++) {
-        const t = new Date(startTime.getTime() + (i / steps) * durationMinutes * 60000);
+        const t = new Date(startTime.getTime() + (i / steps) * periodMinutes * 60000);
         try {
             const pv = satellite.propagate(satrec, t);
             if (!pv.position) continue;
-            const gmst = satellite.gstime(t);
-            const gd = satellite.eciToGeodetic(pv.position, gmst);
+            // Store raw ECI coords in km — no lat/lng conversion
             path.push({
-                lat: satellite.degreesLat(gd.latitude),
-                lng: satellite.degreesLong(gd.longitude),
-                alt_km: gd.height
+                x: pv.position.x,
+                y: pv.position.y,
+                z: pv.position.z
             });
         } catch (e) { /* skip bad points */ }
     }
+    if (path.length > 0) path.push({ ...path[0] }); // close the loop
     return path;
 }
 

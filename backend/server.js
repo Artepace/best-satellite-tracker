@@ -55,21 +55,49 @@ async function fetchTles() {
 
     // STEP 2: FETCH DATA [cite: 10, 27]
     // Corrected URL based on Space-Track documentation
-    const queryUrl =
-      "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/limit/100/format/json";
+    //const queryUrl =
+    //  "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/limit/500/format/json";
 
-    const dataResponse = await axios.get(queryUrl, {
-      headers: { Cookie: sessionCookie },
-    });
+    // const queryUrl = 
+    //   "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/OBJECT_TYPE/PAYLOAD/limit/500/format/json";
+    // const dataResponse = await axios.get(queryUrl, {
+    //   headers: { Cookie: sessionCookie },
+    // });
 
-    const rawData = dataResponse.data;
+    // const rawData = dataResponse.data;
 
-    if (!Array.isArray(rawData)) {
-      console.error("Data error: Space-Track returned non-array format.");
+    // if (!Array.isArray(rawData)) {
+    //   console.error("Data error: Space-Track returned non-array format.");
+    //   return;
+    // }
+
+    // // STEP 3: PROPAGATE [cite: 27, 54]
+    // const processedSats = rawData.map((s) => ({
+    //   id: s.NORAD_CAT_ID,
+    //   name: s.OBJECT_NAME,
+    //   tle1: s.TLE_LINE1,
+    //   tle2: s.TLE_LINE2,
+    // }));
+
+    // STEP 2: FETCH DATA — payloads + debris separately for realistic mix
+    const payloadUrl =
+      "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/OBJECT_TYPE/PAYLOAD/limit/500/format/json";
+    const debrisUrl =
+      "https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/OBJECT_TYPE/DEBRIS/limit/250/format/json";
+
+    const [payloadResponse, debrisResponse] = await Promise.all([
+      axios.get(payloadUrl, { headers: { Cookie: sessionCookie } }),
+      axios.get(debrisUrl,  { headers: { Cookie: sessionCookie } }),
+    ]);
+
+    const rawData = [...payloadResponse.data, ...debrisResponse.data];
+
+    if (!Array.isArray(rawData) || rawData.length === 0) {
+      console.error("Data error: Space-Track returned no data.");
       return;
     }
 
-    // STEP 3: PROPAGATE [cite: 27, 54]
+    // STEP 3: PROPAGATE
     const processedSats = rawData.map((s) => ({
       id: s.NORAD_CAT_ID,
       name: s.OBJECT_NAME,

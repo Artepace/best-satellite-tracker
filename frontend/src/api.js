@@ -2,7 +2,7 @@
 //  api.js — Data layer & polling
 // ════════════════════════════════════════════════
 
-const USE_MOCK      = true;           // flip to false when BE is live
+const USE_MOCK      = false;           // flip to false when BE is live
 const API_BASE      = 'http://localhost:3000';
 const POLL_INTERVAL = 5000;
 
@@ -64,7 +64,7 @@ function _driftMock() {
   // Build risk_assessment from actual collision data (matches backend kesslerScore format)
   const high = _mockCollisions.filter(c => c.risk === 'HIGH').length;
   const total = _mockSatellites.length + _mockDebris.length;
-  const score = Math.min(100, Math.round((high / Math.max(total, 1)) * 10000));
+  const score = Math.min(100, Math.round((high / Math.max(total, 1)) * 100));
 
   return {
     satellites:      _mockSatellites,

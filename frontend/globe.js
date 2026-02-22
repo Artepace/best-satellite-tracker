@@ -236,32 +236,126 @@ function renderDebris(debrisArray) {
 // ═══════════════════════════════════════════════════
 //  ORBIT LINES — uses orbitPath from backend/mock data
 // ═══════════════════════════════════════════════════
+// function addOrbit(satId, satData) {
+//   removeOrbit(satId);
+
+//   // Use backend-provided orbitPath if available
+//   let positions = [];
+//   if (satData.orbitPath && satData.orbitPath.length > 1) {
+//     positions = satData.orbitPath.map(p =>
+//       Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
+//     );
+//   } else {
+//     // Fallback: generate a simple approximate orbit from current position
+//     positions = fallbackOrbitPositions(satData);
+//   }
+
+//   if (positions.length < 2) return;
+
+//   const color = satColor(
+//     { name: satData.name, type: satData.type },
+//     { risk: satData.risk },
+//   );
+//   const orbitId = "orbit_" + satId;
+//   viewer.entities.add({
+//     id: orbitId,
+//     polyline: {
+//       positions: positions,
+//       width: 15,
+//       material: new Cesium.PolylineGlowMaterialProperty({
+//         glowPower: 0.1,
+//         color: color.withAlpha(0.5),
+//       }),
+//       clampToGround: false,
+//     },
+//   });
+//   _orbitEntities.set(satId, orbitId);
+// }
+
+// function addOrbit(satId, satData) {
+//   removeOrbit(satId);
+
+//   const color = satColor(
+//     { name: satData.name, type: satData.type },
+//     { risk: satData.risk },
+//   );
+
+//   let positions = [];
+
+//   if (satData.orbitPath && satData.orbitPath.length > 1) {
+//     const pts = satData.orbitPath;
+//     // Detect format: ECI (x/y/z) or geodetic (lat/lng)
+//     if (pts[0].x !== undefined) {
+//       // ECI in km → Cesium uses meters, ECI = Earth-centred so map directly
+//       positions = pts.map(p =>
+//         new Cesium.Cartesian3(p.x * 1000, p.y * 1000, p.z * 1000)
+//       );
+//     } else {
+//       // Fallback: old geodetic format
+//       positions = pts.map(p =>
+//         Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
+//       );
+//     }
+//   } else {
+//     positions = fallbackOrbitPositions(satData);
+//   }
+
+//   if (positions.length < 2) return;
+
+//   const orbitId = "orbit_" + satId;
+//   viewer.entities.add({
+//     id: orbitId,
+//     polyline: {
+//       positions,
+//       width: 15,
+//       arcType: Cesium.ArcType.NONE,
+//       material: new Cesium.PolylineGlowMaterialProperty({
+//         glowPower: 0.1,
+//         color: color.withAlpha(0.5),
+//       }),
+//       clampToGround: false,
+//     },
+//   });
+//   _orbitEntities.set(satId, orbitId);
+// }
+
 function addOrbit(satId, satData) {
   removeOrbit(satId);
-
-  // Use backend-provided orbitPath if available
-  let positions = [];
-  if (satData.orbitPath && satData.orbitPath.length > 1) {
-    positions = satData.orbitPath.map(p =>
-      Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
-    );
-  } else {
-    // Fallback: generate a simple approximate orbit from current position
-    positions = fallbackOrbitPositions(satData);
-  }
-
-  if (positions.length < 2) return;
 
   const color = satColor(
     { name: satData.name, type: satData.type },
     { risk: satData.risk },
   );
+
+  let positions = [];
+
+  if (satData.orbitPath && satData.orbitPath.length > 1) {
+    const pts = satData.orbitPath;
+    // Detect format: ECI (x/y/z) or geodetic (lat/lng)
+    if (pts[0].x !== undefined) {
+      // ECI in km → Cesium uses meters, ECI = Earth-centred so map directly
+      positions = pts.map(p =>
+        new Cesium.Cartesian3(p.x * 1000, p.y * 1000, p.z * 1000)
+      );
+    } else {
+      // Fallback: old geodetic format
+      positions = pts.map(p =>
+        Cesium.Cartesian3.fromDegrees(p.lng, p.lat, (p.alt_km || satData.alt_km) * 1000)
+      );
+    }
+  } else {
+    positions = fallbackOrbitPositions(satData);
+  }
+
+  if (positions.length < 2) return;
+
   const orbitId = "orbit_" + satId;
   viewer.entities.add({
     id: orbitId,
     polyline: {
-      positions: positions,
+      positions,
       width: 15,
+      arcType: Cesium.ArcType.NONE,
       material: new Cesium.PolylineGlowMaterialProperty({
         glowPower: 0.1,
         color: color.withAlpha(0.5),
@@ -331,14 +425,43 @@ function removeLabel(satId) {
   }
 }
 
+// function removeOrbit(satId) {
+//   const oid = _orbitEntities.get(satId);
+//   if (oid) {
+//     const e = viewer.entities.getById(oid);
+//     if (e) viewer.entities.remove(e);
+//     _orbitEntities.delete(satId);
+//   }
+// }
+
 function removeOrbit(satId) {
   const oid = _orbitEntities.get(satId);
   if (oid) {
-    const e = viewer.entities.getById(oid);
-    if (e) viewer.entities.remove(e);
+    // Remove main segment and any sub-segments (orbit_id_1, orbit_id_2, ...)
+    let idx = 0;
+    while (true) {
+      const id = idx === 0 ? oid : oid + "_" + idx;
+      const e = viewer.entities.getById(id);
+      if (!e) break;
+      viewer.entities.remove(e);
+      idx++;
+    }
     _orbitEntities.delete(satId);
   }
 }
+
+// function removeOrbit(satId) {
+//   const oid = _orbitEntities.get(satId);
+//   if (oid) {
+//     for (let i = 0; i < 20; i++) {
+//       const id = i === 0 ? oid : oid + '_' + i;
+//       const e = viewer.entities.getById(id);
+//       if (!e) { if (i > 0) break; continue; }
+//       viewer.entities.remove(e);
+//     }
+//     _orbitEntities.delete(satId);
+//   }
+// }
 
 // ═══════════════════════════════════════════════════
 //  CAMERA

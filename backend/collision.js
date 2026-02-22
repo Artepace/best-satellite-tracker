@@ -21,9 +21,9 @@ function computeDistance(sat1, sat2){
 }
 
 function getRiskLevel(distance_km){
-    if (distance_km <= 5) return "HIGH";
-    if (distance_km <= 25) return "MEDIUM";
-    if (distance_km <= 50) return "LOW";
+    if (distance_km <= 100) return "HIGH";
+    if (distance_km <= 500) return "MEDIUM";
+    if (distance_km <= 1000) return "LOW";
     return null;
 }
 
@@ -75,7 +75,7 @@ function calculateTCA(sat1, sat2) {
 
 function detectCollisions(objects){
     const collisions = []; // we will push risky pairs of satellites into this array.
-    const ALTITUDE_BAND = 50; // only check 2 objects for collision, if they are within 50 km of each other in altitude.
+    const ALTITUDE_BAND = 500; // only check 2 objects for collision, if they are within 500 km of each other in altitude.
     // This is an optimization. 
 
     // checking every unique pair of satellites.
