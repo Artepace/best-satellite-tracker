@@ -1,5 +1,4 @@
-Cesium.Ion.defaultAccessToken =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0YzQ4NmJhYy1mMDk2LTRlN2YtOGQ1MC1mZTZhZjZmMjMzOWIiLCJpZCI6MzkyNzYwLCJpYXQiOjE3NzE2ODc5MDZ9.HzU4xlzSGCgp7Zy6rfNlkWkceYgBbpHJUWLRwrkIJvU";
+Cesium.Ion.defaultAccessToken = import.meta.env.VITE_ACCESS_TOKEN;
 
 const viewer = new Cesium.Viewer("cesiumContainer", {
   animation: false,
